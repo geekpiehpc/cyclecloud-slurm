@@ -3,7 +3,7 @@
 ## Cluster Configuration File ##
 ################################
 
-[cluster Slurm]
+[cluster Slurm Kyaru]
 FormLayout = selectionpanel
 Category = Schedulers
 
@@ -44,7 +44,7 @@ Autoscale = $Autoscale
         cyclecloud.exports.defaults.samba.enabled = false      
         cshared.server.legacy_links_disabled = true
 
-        [[[cluster-init cyclecloud/slurm:default]]]
+        [[[cluster-init azure-storage/slurm-kyaru:default:2.5.0]]]
         Optional = true
 
         [[[configuration cyclecloud.mounts.nfs_shared]]]
@@ -86,7 +86,7 @@ Autoscale = $Autoscale
         cyclecloud.mounts.nfs_shared.disabled = ${NFSType != "External"}
 
 
-        [[[cluster-init cyclecloud/slurm:scheduler]]]
+        [[[cluster-init azure-storage/slurm-kyaru:scheduler:2.5.0]]]
 
         [[[network-interface eth0]]]
         AssociatePublicIpAddress = $UsePublicNetwork
@@ -136,7 +136,7 @@ Autoscale = $Autoscale
         slurm.node_prefix = ${ifThenElse(NodeNamePrefix=="Cluster Prefix", StrJoin("-", ClusterName, ""), NodeNamePrefix)}
         slurm.use_nodename_as_hostname = $NodeNameIsHostname
 
-        [[[cluster-init cyclecloud/slurm:execute]]]
+        [[[cluster-init azure-storage/slurm-kyaru:execute:2.5.0]]]
 
         [[[network-interface eth0]]]
         AssociatePublicIpAddress = $ExecuteNodesPublic
@@ -147,12 +147,13 @@ Autoscale = $Autoscale
     ImageName = $HPCImageName
     MaxCoreCount = $MaxHPCExecuteCoreCount
     Azure.MaxScalesetSize = $HPCMaxScalesetSize
+    ComputerNamePrefix = ${StrJoin("-", ClusterName, "hpc")}
     AdditionalClusterInitSpecs = $HPCClusterInitSpecs
 
 
         [[[configuration]]]
         slurm.default_partition = true
-        slurm.hpc = true
+        slurm.hpc = $HpcIsHpc
         slurm.partition = hpc
 
 
@@ -160,14 +161,16 @@ Autoscale = $Autoscale
     Extends = nodearraybase
     MachineType = $HTCMachineType
     ImageName = $HTCImageName
+    ComputerNamePrefix = ${StrJoin("-", ClusterName, "htc")}
     MaxCoreCount = $MaxHTCExecuteCoreCount
+    Azure.MaxScalesetSize = $HTCMaxScalesetSize
 
     Interruptible = $HTCUseLowPrio
     MaxPrice = $HTCSpotMaxPrice
     AdditionalClusterInitSpecs = $HTCClusterInitSpecs
 
         [[[configuration]]]
-        slurm.hpc = false
+        slurm.hpc = $HtcIsHpc
         slurm.partition = htc
 
 [parameters About]
@@ -204,12 +207,23 @@ Order = 10
         ParameterType = Cloud.MachineType
         DefaultValue = Standard_F2s_v2
 
+        [[[parameter HpcIsHpc]]]
+        Label = HPC is HPC
+        Widget.Label = HPC need placement group
+        Widget.Plugin = pico.form.BooleanCheckBox
+        DefaultValue = true
+
         [[[parameter HTCMachineType]]]
         Label = HTC VM Type
         Description = The VM type for HTC execute nodes
         ParameterType = Cloud.MachineType
         DefaultValue = Standard_F2s_v2
 
+        [[[parameter HtcIsHpc]]]
+        Label = HTC is HPC
+        Widget.Label = HTC need placement group
+        Widget.Plugin = pico.form.BooleanCheckBox
+        DefaultValue = false
 
     [[parameters Auto-Scaling]]
     Description = "The cluster can autoscale to the workload, adding execute hosts as jobs are queued. To enable this check the box below and choose the initial and maximum core counts for the cluster"
@@ -226,7 +240,7 @@ Order = 10
         Description = The total number of HPC execute cores to start
         DefaultValue = 100
         Config.Plugin = pico.form.NumberTextBox
-        Config.MinValue = 1
+        Config.MinValue = 0
         Config.IntegerOnly = true
 
         [[[parameter MaxHTCExecuteCoreCount]]]
@@ -234,17 +248,24 @@ Order = 10
         Description = The total number of HTC execute cores to start
         DefaultValue = 100
         Config.Plugin = pico.form.NumberTextBox
-        Config.MinValue = 1
+        Config.MinValue = 0
         Config.IntegerOnly = true
 
         [[[parameter HPCMaxScalesetSize]]]
-        Label = Max VMs per Scaleset
+        Label = HPC Max VMs per Scaleset
         Description = The maximum number of VMs created per VM Scaleset e.g. switch in Slurm.
         DefaultValue = 100
         Config.Plugin = pico.form.NumberTextBox
         Config.MinValue = 1
         Config.IntegerOnly = true
 
+        [[[parameter HTCMaxScalesetSize]]]
+        Label = HTC Max VMs per Scaleset
+        Description = The maximum number of VMs created per VM Scaleset e.g. switch in Slurm.
+        DefaultValue = 100
+        Config.Plugin = pico.form.NumberTextBox
+        Config.MinValue = 1
+        Config.IntegerOnly = true
 
         [[[parameter HTCUseLowPrio]]]
         Label = Spot
@@ -331,7 +352,7 @@ Order = 15
         Widget.Plugin = pico.form.BooleanCheckBox
         Widget.Label = Add NFS mount
 
-        [[[parameter AdditonalNFSAddress]]]
+        [[[parameter AdditionalNFSAddress]]]
         Label = NFS IP Address 
         Description = The IP address or hostname of the NFS server. Also accepts a list comma-separated addresses, for example, to mount a frontend load-balanced Azure HPC Cache.
         Config.ParameterType = String
@@ -376,8 +397,8 @@ Order = 20
         ParameterType = StringList
         Config.Plugin = pico.form.Dropdown
         Config.FreeForm = true
-        Config.Entries := {[Value="20.11.7-1"]}
-        DefaultValue = 20.11.7-1
+        Config.Entries := {[Value="20.11.7+really20.11.4-2"]}
+        DefaultValue = 20.11.7+really20.11.4-2
 
         [[[parameter configuration_slurm_accounting_enabled]]]
         Label = Job Accounting
@@ -428,7 +449,7 @@ Order = 20
         Label = Name As Hostname
         Description = Should the hostname match the nodename for execute nodes?
         ParameterType = Boolean
-        DefaultValue = true
+        DefaultValue = false
 
         [[[parameter NodeNamePrefix]]]
         Label = Node Prefix
@@ -454,22 +475,22 @@ Order = 20
         Label = Scheduler OS
         ParameterType = Cloud.Image
         Config.OS = linux
-        DefaultValue = cycle.image.centos8
-        Config.Filter := Package in {"cycle.image.centos7", "cycle.image.centos8", "cycle.image.ubuntu18"}
+        DefaultValue = microsoft-dsvm:ubuntu-hpc:2004:latest
+        Config.Filter := Package in {"cycle.image.centos7", "cycle.image.centos8", "cycle.image.ubuntu18", "microsoft-dsvm:ubuntu-hpc:2004:latest", "OpenLogic:CentOS-HPC:8_1-gen2:latest"}
 
         [[[parameter HPCImageName]]]
         Label = HPC OS
         ParameterType = Cloud.Image
         Config.OS = linux
-        DefaultValue = cycle.image.centos8
-        Config.Filter := Package in {"cycle.image.centos7", "cycle.image.centos8", "cycle.image.ubuntu18"}
+        DefaultValue = microsoft-dsvm:ubuntu-hpc:2004:latest
+        Config.Filter := Package in {"cycle.image.centos7", "cycle.image.centos8", "cycle.image.ubuntu18", "microsoft-dsvm:ubuntu-hpc:2004:latest", "OpenLogic:CentOS-HPC:8_1-gen2:latest"}
 
         [[[parameter HTCImageName]]]
         Label = HTC OS
         ParameterType = Cloud.Image
         Config.OS = linux
-        DefaultValue = cycle.image.centos8
-        Config.Filter := Package in {"cycle.image.centos7", "cycle.image.centos8", "cycle.image.ubuntu18"}
+        DefaultValue = microsoft-dsvm:ubuntu-hpc:2004:latest
+        Config.Filter := Package in {"cycle.image.centos7", "cycle.image.centos8", "cycle.image.ubuntu18", "microsoft-dsvm:ubuntu-hpc:2004:latest", "OpenLogic:CentOS-HPC:8_1-gen2:latest"}
 
         [[[parameter SchedulerClusterInitSpecs]]]
         Label = Scheduler Cluster-Init

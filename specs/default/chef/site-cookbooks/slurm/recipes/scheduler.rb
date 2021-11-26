@@ -58,7 +58,7 @@ bash 'Install cyclecloud python api' do
   code <<-EOH
     #!/bin/bash
     cd #{node[:cyclecloud][:bootstrap]}
-    jetpack download --project slurm #{node[:slurm][:cyclecloud_api]} #{node[:slurm][:cyclecloud_api]} || exit 1;
+    jetpack download --project slurm-kyaru #{node[:slurm][:cyclecloud_api]} #{node[:slurm][:cyclecloud_api]} || exit 1;
     /opt/cycle/jetpack/system/embedded/bin/pip install #{node[:slurm][:cyclecloud_api]} || exit 1;
     rm -f #{node[:slurm][:cyclecloud_api]}
     touch /etc/cyclecloud-api.installed
