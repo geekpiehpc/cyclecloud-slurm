@@ -1,0 +1,8 @@
+[common]
+server_addr = <%= node[:frp][:server][:addr] %>
+server_port = <%= node[:frp][:server][:port] %>
+
+[slurm_exporter]
+type = tcp
+local_port = <%= node[:slurm_exporter][:local][:port] %>
+remote_port = <%= node[:slurm_exporter][:remote][:port] %>
