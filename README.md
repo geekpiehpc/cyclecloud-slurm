@@ -1,9 +1,20 @@
 
-Slurm
+Slurm-Kyaru
 ========
 
-This project sets up an auto-scaling Slurm cluster
+This is a modifition of [Azure/cyclecloud-slurm](https://github.com/Azure/cyclecloud-slurm), adding support for Ubuntu 20.04 ([`microsoft-dsvm:ubuntu-hpc:2004:`](https://techcommunity.microsoft.com/t5/azure-compute-blog/azure-hpc-vm-images/ba-p/977094)).
+
+This project sets up an auto-scaling Slurm cluster.
+
 Slurm is a highly configurable open source workload manager. See the [Slurm project site](https://www.schedmd.com/) for an overview.
+
+## Modifications
+
+1. Add [prometheus-slurm-exporter](https://github.com/vpenso/prometheus-slurm-exporter) support, so we can monitor Slurm status with Prometheus.
+2. Use native Slurm package instead of custom build one. Although we provides a script to build the custom package, it is not recommended. CycleCloud only modified `job_desc->req_switch` to `1`, but the same thing can also acheived by `--switch`, or use a [Lua Plugin](https://funinit.wordpress.com/2018/06/07/how-to-use-job_submit_lua-with-slurm/) if you like.
+3. Also install `enroot` and `nvslurm`.
+4. reconfigure network after hostname updated.
+5. Use `/etc/default/slurmd` as the configuration file path on Ubuntu, instead of RHEL's `/etc/sysconfig/slurmd`.
 
 ## Slurm Clusters in CycleCloud versions >= 7.8
 Slurm clusters running in CycleCloud versions 7.8 and later implement an updated version of the autoscaling APIs that allows the clusters to utilize multiple nodearrays and partitions. To facilitate this functionality in Slurm, CycleCloud pre-populates the execute nodes in the cluster. Because of this, you need to run a command on the Slurm scheduler node after making any changes to the cluster, such as autoscale limits or VM types.
