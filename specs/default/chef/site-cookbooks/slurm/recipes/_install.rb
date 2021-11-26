@@ -14,48 +14,40 @@ myplatform = node[:platform]
 case myplatform
 when 'ubuntu'
 
-  package 'Install munge' do
-    package_name 'munge'
-  end
-  slurmrpms = %w[slurm slurm-devel slurm-example-configs slurm-slurmctld slurm-slurmd]
-  slurmrpms.each do |slurmpkg|
-    jetpack_download "#{slurmpkg}_#{slurmver}_amd64.deb" do
-      project "slurm"
-      not_if { ::File.exist?("#{node[:jetpack][:downloads]}/#{slurmpkg}_#{slurmver}_#{slurmarch}.deb") }
-    end
+  include_recipe "slurm::_prepare_ubuntu"
+  
+  # Install packages
+  apt_package 'slurm-wlm' do
+    action :install
+    not_if "dpkg -l slurm-wlm"
   end
 
-  slurmrpms.each do |slurmpkg|
-    execute "Install #{slurmpkg}_#{slurmver}_amd64.deb" do
-      command "apt install -y #{node[:jetpack][:downloads]}/#{slurmpkg}_#{slurmver}_#{slurmarch}.deb"
-      action :run
-      not_if { ::File.exist?("/var/spool/slurmd") }
-    end
+  slurm_installdeb 'enroot' do
+    source "https://github.com/NVIDIA/enroot/releases/download/v#{node[:enroot][:version]}/enroot_#{node[:enroot][:version]}-#{node[:enroot][:debver]}_amd64.deb"
+    package_name 'enroot'
+    ignore_ssl true
+    action :install
   end
 
-  # Need to manually create links for libraries the RPMs are linked to
-  link '/usr/lib/x86_64-linux-gnu/libreadline.so.6' do
-    to '/lib/x86_64-linux-gnu/libreadline.so.7'
+  slurm_installdeb 'enroot+caps' do
+    source "https://github.com/NVIDIA/enroot/releases/download/v#{node[:enroot][:version]}/enroot+caps_#{node[:enroot][:version]}-#{node[:enroot][:debver]}_amd64.deb"
+    package_name 'enroot+caps'
+    ignore_ssl true
+    action :install
   end
 
-  link '/usr/lib/x86_64-linux-gnu/libhistory.so.6' do
-    to '/lib/x86_64-linux-gnu/libhistory.so.7'
+  slurm_installdeb 'nvslurm' do
+    source node[:nvslurm][:deb][:url]
+    package_name 'nvslurm-plugin-pyxis'
+    ignore_ssl true
+    action :install
   end
 
-  link '/usr/lib/x86_64-linux-gnu/libncurses.so.5' do
-    to '/lib/x86_64-linux-gnu/libncurses.so.5'
+  # sudo ln -s /usr/share/pyxis/pyxis.conf /etc/slurm-llnl/plugstack.conf.d/pyxis.conf
+  link '/etc/slurm/plugstack.conf.d/pyxis.conf' do
+    to '/usr/share/pyxis/pyxis.conf'
+    action :create
   end
-
-  link '/usr/lib/x86_64-linux-gnu/libtinfo.so.5' do
-    to '/lib/x86_64-linux-gnu/libtinfo.so.5'
-  end
-
-  # file '/etc/ld.so.conf.d/slurmlibs.conf' do
-  #   content "/usr/lib/x86_64-linux-gnu/"
-  #   action :create_if_missing
-  # end
-
-
 
 when 'centos', 'rhel', 'redhat'
   # Required for munge

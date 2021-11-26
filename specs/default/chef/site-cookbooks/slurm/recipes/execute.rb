@@ -3,14 +3,6 @@
 # Recipe:: execute
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-
-if node[:slurm][:ensure_waagent_monitor_hostname] then
-  execute 'ensure hostname monitoring' do
-    command 'sed -i s/Provisioning.MonitorHostName=n/Provisioning.MonitorHostName=y/g  /etc/waagent.conf && systemctl restart walinuxagent'
-    only_if "grep -Eq '^Provisioning.MonitorHostName=n$' /etc/waagent.conf" 
-  end
-end
-
 nodename = node[:cyclecloud][:node][:name]
 dns_suffix = node[:slurm][:node_domain_suffix]
 if !dns_suffix.nil? && !dns_suffix.empty? && dns_suffix[0] != "." then
@@ -41,6 +33,10 @@ if node[:slurm][:use_nodename_as_hostname] then
   execute 'set hostname' do
     command "hostnamectl set-hostname #{nodename}#{dns_suffix}"
     creates '/etc/slurm.hostname.#{nodename}.enabled'
+  end
+
+  execute 'reconfigure network' do
+    command "networkctl reconfigure eth0"
   end
 end
 
@@ -90,16 +86,23 @@ end
 
 
 defer_block "Defer starting slurmd until end of converge" do
+
+  if node[:slurm][:use_nodename_as_hostname] then
+    hostname = "#{nodename}#{dns_suffix}"
+  else
+    hostname = node[:hostname]
+  end
+
   slurmd_sysconfig="SLURMD_OPTIONS=-N #{nodename}"
 
-  cmd_str = "getent hosts #{node[:cyclecloud][:instance][:ipv4]} | grep -q #{nodename}"
+  cmd_str = "resolvectl query #{hostname}"
   cmd = Mixlib::ShellOut.new(cmd_str)
   cmd.run_command
   if !cmd.exitstatus.zero?
     raise "Hostname has not registered in DNS yet."
   end
 
-  cmd_str = "hostname | grep -q #{nodename}"
+  cmd_str = "hostname | grep -q #{hostname}"
   cmd = Mixlib::ShellOut.new(cmd_str)
   cmd.run_command
   if !cmd.exitstatus.zero?
@@ -109,11 +112,7 @@ defer_block "Defer starting slurmd until end of converge" do
   myplatform=node[:platform]
   case myplatform
   when 'ubuntu'
-    directory '/etc/sysconfig' do
-      action :create
-    end
-    
-    file '/etc/sysconfig/slurmd' do
+    file '/etc/default/slurmd' do
       content slurmd_sysconfig
       mode '0700'
       owner 'slurm'
@@ -140,7 +139,7 @@ defer_block "Defer starting slurmd until end of converge" do
   # set the ip as nodeaddr and hostname in slurm
   execute 'set node to active' do
     # no longer set hostname/nodeaddr. cyclecloud_slurm.py on the slurmctld host will do this.
-    command "scontrol update nodename=#{nodename} state=UNDRAIN && touch /etc/slurm.reenabled"
+    command "scontrol update NodeName=#{nodename} State=UNDRAIN && touch /etc/slurm.reenabled"
     creates '/etc/slurm.reenabled'
   end
 end

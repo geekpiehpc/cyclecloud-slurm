@@ -10,6 +10,8 @@ slurmarch = node[:slurm][:arch]
 slurmuser = node[:slurm][:user][:name]
 mungeuser = node[:munge][:user][:name]
 
+include_recipe 'slurm::_install' if node[:slurm][:install]
+
 # Set up users for Slurm and Munge
 group slurmuser do
   gid node[:slurm][:user][:gid]
@@ -22,12 +24,12 @@ user slurmuser do
   uid node[:slurm][:user][:uid]
   gid node[:slurm][:user][:gid]
   action :create
+  not_if "getent passwd #{slurmuser}"
 end
-
 
 group mungeuser do
   gid node[:munge][:user][:gid]
-  not_if "getent group #{mungeuser}"  
+  not_if "getent group #{mungeuser}"
 end
 
 user mungeuser do
@@ -36,31 +38,7 @@ user mungeuser do
   uid node[:munge][:user][:uid]
   gid node[:munge][:user][:gid]
   action :create
-end
-
-
-include_recipe 'slurm::_install' if node[:slurm][:install]
-
-#Fix munge permissions and create key
-directory "/etc/munge" do
-  owner mungeuser
-  group mungeuser
-  mode 0700
-end
-directory "/var/lib/munge" do
-  owner mungeuser
-  group mungeuser
-  mode 0711
-end
-directory "/var/log/munge" do
-  owner mungeuser
-  group mungeuser
-  mode 0700
-end
-directory "/run/munge" do
-  owner mungeuser
-  group mungeuser
-  mode 0755
+  not_if "getent passwd #{mungeuser}"
 end
 
 directory "/sched/munge" do
@@ -69,19 +47,12 @@ directory "/sched/munge" do
   mode 0700
 end
 
-# Set up slurm 
-user slurmuser do
-  comment 'User to run slurmd'
-  shell '/bin/false'
-  action :create
-end
-
 # add slurm to cyclecloud so it has access to jetpack / userdata
 group 'cyclecloud' do
     members [slurmuser]
     append true
     action :modify
-end    
+end
 
 directory '/var/spool/slurmd' do
   owner slurmuser

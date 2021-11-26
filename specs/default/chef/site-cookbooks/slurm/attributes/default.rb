@@ -1,15 +1,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-default[:slurm][:version] = "19.05.8-1"
-default[:slurm][:user][:name] = 'slurm'
-default[:slurm][:cyclecloud_api] = "cyclecloud_api-8.1.0-py2.py3-none-any.whl"
+default[:slurm][:version] = "20.11.7+really20.11.4-2"
+default[:slurm][:user][:name] = 'slurm' # don't change this
+default[:slurm][:cyclecloud_api] = "cyclecloud_api-8.2.0-py2.py3-none-any.whl"
 default[:slurm][:autoscale_dir] = "/opt/cycle/slurm"
 default[:slurm][:install] = true
 default[:slurm][:use_nodename_as_hostname] = false
 default[:cyclecloud][:hosts][:simple_vpc_dns][:enabled] = false
 default[:cyclecloud][:hosts][:standalone_dns][:enabled] = false
 default[:slurm][:additional][:config] = ""
-default[:slurm][:ensure_waagent_monitor_hostname] = true
+default[:enroot][:version] = "3.4.0"
+default[:enroot][:debver] = "1"
+default[:slurm][:deb][:tar] = "LINK_REMOVED"
+default[:nvslurm][:deb][:url] = "LINK_REMOVED"
 
 myplatform=node[:platform]
 case myplatform
@@ -17,6 +20,8 @@ when 'ubuntu'
   default[:slurm][:arch] = "amd64"
   default[:slurm][:user][:uid] = 64030
   default[:slurm][:user][:gid] = 64030
+  default[:slurm][:repo][:path] = '/usr/local/repos/slurm-kyaru'
+  default[:slurm][:repo][:name] = "slurm-kyaru"
 when 'centos', 'rhel', 'redhat'
   if node[:platform_version] < "8";
     default[:slurm][:arch] = "el7.x86_64"

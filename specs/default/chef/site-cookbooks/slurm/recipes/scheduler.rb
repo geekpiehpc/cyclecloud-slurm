@@ -67,27 +67,6 @@ bash 'Install cyclecloud python api' do
 end
 
 
-
-case node[:platform]
-when 'ubuntu'
-  plugin_name = "job_submit_cyclecloud_ubuntu_#{slurmver}.so"
-when 'centos', 'rhel', 'redhat'
-  if node[:platform_version] >= '8' then
-    plugin_name = "job_submit_cyclecloud_centos8_#{slurmver}.so"
-  else
-    plugin_name = "job_submit_cyclecloud_centos_#{slurmver}.so"
-  end
-end
-
-bash 'Install job_submit/cyclecloud' do
-  code <<-EOH
-    jetpack download --project slurm #{plugin_name}  /usr/lib64/slurm/job_submit_cyclecloud.so || exit 1;
-    touch /etc/cyclecloud-job-submit.installed
-    EOH
-  not_if { ::File.exist?('/etc/cyclecloud-job-submit.installed') }
-end
-
-
 # we will be appending to this file, so that the next step is monotonic
 template '/sched/slurm.conf' do
   owner "#{slurmuser}"
@@ -211,6 +190,7 @@ directory "/etc/systemd/system/slurmctld.service.d" do
   mode "0755"
 end 
 
+# why?
 cookbook_file "/etc/systemd/system/slurmctld.service.d/override.conf" do
   source "slurmctld.override"
   owner "root"
@@ -220,7 +200,7 @@ cookbook_file "/etc/systemd/system/slurmctld.service.d/override.conf" do
 end
 
 
-include_recipe 'slurm::accounting'
+include_recipe 'slurm::_accounting'
 
 service 'slurmctld' do
   action [:enable, :restart]
